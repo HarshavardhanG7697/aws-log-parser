@@ -36,6 +36,7 @@ with open(INPUT_FILENAME, 'r', encoding='utf-8') as file:
 
 # Process the data
 output = process_raw_log_data(data)
+os.mkdir(os.getcwd() + '/outputs')
 output_filename = os.getcwd() + '/outputs/new_agent_log.log'
 
 with open(output_filename, 'w', encoding='utf-8') as file:
