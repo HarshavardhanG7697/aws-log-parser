@@ -1,51 +1,75 @@
+import click
 import json
 import os
 import structlog
 
 logger = structlog.get_logger()
 
-
-def process_raw_log_data(raw_log_data: str) -> list:
-    """converts the raw log data to readable format.
-
-    Args:
-        raw_log_data (str): the raw log data.
-
-    Returns:
-        list: list of json objects.
-    """
-    logger.info('Processing raw log data')
-    formatted_log_data = []
-    for line in raw_log_data.split('>>>'):
-        line = line.strip()
-        if line:
-            parsed_line = json.loads(line)
-            message = parsed_line.get('message', '')
-            timestamp = parsed_line.get('@timestamp', '')
-            timestamp = timestamp.replace('T', ' ').replace('Z', '')
-            level = parsed_line.get('log', {}).get('level', '')
-            formatted_log_data.append(f'{timestamp} [{level}] {message}')
-    return formatted_log_data
+MIGRATION_SERVICES = ["ce", "drs", "mgn"]
+CE_LOG_DIR = "/var/lib/aws-replication-agent"
+CE_LOG_FILE = "/agent.log.0"
 
 
-# Read data from file
-INPUT_FILENAME = str(input('Enter the absolute path of the log file: '))
-with open(INPUT_FILENAME, 'r', encoding='utf-8') as file:
-    logger.info('Reading data from file')
-    data = file.read()
+def log_dir_exists(service):
+    if service in MIGRATION_SERVICES:
+        return os.path.exists(CE_LOG_DIR)
+    else:
+        logger.debug(f"{CE_LOG_DIR} not exist")
+        return False
 
-# Process the data
-output = process_raw_log_data(data)
 
-try:
-    logger.info('Creating outputs directory')
-    os.mkdir(os.getcwd() + '/outputs')
-except FileExistsError:
-    logger.info('Outputs directory already exists')
-output_filename = os.getcwd() + '/outputs/new_agent_log.log'
+def log_file_exists(service):
+    if service in MIGRATION_SERVICES:
+        logger.debug(f"{os.getcwd() + CE_LOG_FILE} exist")
+        return os.path.exists(os.getcwd() + CE_LOG_FILE)
+    else:
+        logger.debug(f"{os.path.exists(os.getcwd() + CE_LOG_FILE)} not exist")
+        return False
 
-with open(output_filename, 'w', encoding='utf-8') as file:
-    for log_event in output:
-        file.writelines(log_event + '\n')
 
-logger.info('Successfully generated new_agent_log.log')
+def parse_logs(raw_log_file):
+    parsed_logs = []
+    with open(raw_log_file, "r") as raw_log_data:
+        for line in raw_log_data:
+            line = line.split('>>>')
+            if line and line != ['\n']:
+                parsed_line = json.loads(line[0])
+                message = parsed_line.get('message', '')
+                timestamp = parsed_line.get('@timestamp', '').replace('T', ' ').replace('Z', '')
+                level = parsed_line.get('log', {}).get('level', '')
+                exception_message = parsed_line.get('exception', {}).get('message', '')
+                exception_trace = parsed_line.get('exception', {}).get('trace', '')
+
+                log_line = f'{timestamp} [{level}] {message}\n'
+                if exception_message:
+                    log_line += f'{timestamp} [EXCEPTION] {exception_message}\n'
+                if exception_trace:
+                    log_line += f'{timestamp} [TRACE] {exception_trace}\n'
+
+                parsed_logs.append(log_line)
+        return parsed_logs
+
+
+
+@click.command()
+@click.argument('service')
+def main(service="ce"):
+    output = []
+    if log_dir_exists(service):
+        logger.warn(log_dir_exists(service))
+        log_file = CE_LOG_DIR + CE_LOG_FILE
+        logger.info(f"located {log_file}.")
+        output = parse_logs(log_file)
+    elif log_file_exists(service):
+        logger.warn(log_dir_exists(service))
+        log_file = os.getcwd() + CE_LOG_FILE
+        logger.info(f"located {log_file}.")
+        output = parse_logs(log_file)
+    else:
+        logger.critical(f"no raw logs found.")
+
+    click.echo_via_pager(output)
+
+
+if __name__ == '__main__':
+    main()
