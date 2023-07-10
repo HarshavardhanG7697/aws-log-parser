@@ -1,15 +1,18 @@
 [tool.poetry]
 name = "aws-log-parser"
 version = "0.1.0"
-description = "A tool to parse the logs produced by aws services"
+description = "A log parser for parsing logs by aws agents of DRS, MGN and SSM service"
 authors = ["HarshavardhanGowda <harsha7697@gmail.com>"]
 license = "MIT"
 readme = "README.md"
-packages = [{include = "aws_log_parser"}]
 
 [tool.poetry.dependencies]
 python = "^3.8"
+click = "^8.1.4"
+structlog = "^23.1.0"
 
+[tool.poetry.scripts]
+aws-log-parser = 'aws_log_parser.aws_log_parser:main'
 
 [build-system]
 requires = ["poetry-core"]
