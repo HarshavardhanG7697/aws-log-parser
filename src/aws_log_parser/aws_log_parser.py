@@ -19,28 +19,23 @@ def log_file_in_current_dir(service) -> bool:
     return service in MIGRATION_SERVICES and os.path.exists(os.path.join(current_dir, CE_LOG_FILE))
 
 
-def parse_logs(raw_log_file):
-    parsed_logs = []
-    logger.info("parsing log file.")
-    with open(raw_log_file, "r") as raw_log_data:
-        for line in raw_log_data:
-            line = line.split('>>>')
-            if line and line != ['\n']:
-                parsed_line = json.loads(line[0])
-                message = parsed_line.get('message', '')
-                timestamp = parsed_line.get('@timestamp', '').replace('T', ' ').replace('Z', '')
-                level = parsed_line.get('log', {}).get('level', '')
-                exception_message = parsed_line.get('exception', {}).get('message', '')
-                exception_trace = parsed_line.get('exception', {}).get('trace', '')
+def parse_logs(raw_log_line):
+    log_line = raw_log_line.split('>>>')
+    if log_line and log_line != ['\n']:
+        parsed_line = json.loads(log_line[0])
+        message = parsed_line.get('message', '')
+        timestamp = parsed_line.get('@timestamp', '').replace('T', ' ').replace('Z', '')
+        level = parsed_line.get('log', {}).get('level', '')
+        exception_message = parsed_line.get('exception', {}).get('message', '')
+        exception_trace = parsed_line.get('exception', {}).get('trace', '')
 
-                log_line = f'{timestamp} [{level}] {message}\n'
-                if exception_message:
-                    log_line += f'{timestamp} [EXCEPTION] {exception_message}\n'
-                if exception_trace:
-                    log_line += f'{timestamp} [TRACE] {exception_trace}\n'
+        formatted_log_line = f'{timestamp} [{level}] {message}\n'
+        if exception_message:
+            formatted_log_line += f'{timestamp} [EXCEPTION] {exception_message}\n'
+        if exception_trace:
+            formatted_log_line += f'{timestamp} [TRACE] {exception_trace}\n'
 
-                parsed_logs.append(log_line)
-        return parsed_logs
+        return formatted_log_line
 
 
 
@@ -57,12 +52,14 @@ def main(service="ce"):
 
     if log_file:
         logger.info(f"located {log_file}.")
-        output = parse_logs(log_file)
+        output = []
+        with open(log_file, "r") as raw_log_data:
+            logger.info("parsing raw log file")
+            for log_line in raw_log_data:
+                output.append(parse_logs(log_line))
+        click.echo_via_pager(output)
     else:
         logger.critical("no raw logs found.")
-
-    click.echo_via_pager(output)
-
 
 if __name__ == '__main__':
     main()
