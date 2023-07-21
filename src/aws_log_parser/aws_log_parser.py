@@ -1,6 +1,7 @@
-import click
 import json
 import os
+
+import click
 import structlog
 
 logger = structlog.get_logger()
@@ -10,39 +11,42 @@ CE_LOG_DIR = "/var/lib/aws-replication-agent"
 CE_LOG_FILE = "agent.log.0"
 
 
-def log_dir_exists(service) -> bool:
+def log_dir_exists(service: str) -> bool:
     return service in MIGRATION_SERVICES and os.path.exists(CE_LOG_DIR)
 
 
-def log_file_in_current_dir(service) -> bool:
+def log_file_in_current_dir(service: str) -> bool:
     current_dir = os.getcwd()
-    return service in MIGRATION_SERVICES and os.path.exists(os.path.join(current_dir, CE_LOG_FILE))
+    return service in MIGRATION_SERVICES and os.path.exists(
+        os.path.join(current_dir, CE_LOG_FILE)
+    )
 
 
-def parse_logs(raw_log_line):
-    log_line = raw_log_line.split('>>>')
-    if log_line and log_line != ['\n']:
+def parse_logs(raw_log_line: str) -> str:
+    log_line = raw_log_line.split(">>>")
+    formatted_log_line = ""
+
+    if log_line and log_line != ["\n"]:
         parsed_line = json.loads(log_line[0])
-        message = parsed_line.get('message', '')
-        timestamp = parsed_line.get('@timestamp', '').replace('T', ' ').replace('Z', '')
-        level = parsed_line.get('log', {}).get('level', '')
-        exception_message = parsed_line.get('exception', {}).get('message', '')
-        exception_trace = parsed_line.get('exception', {}).get('trace', '')
+        message = parsed_line.get("message", "")
+        timestamp = parsed_line.get("@timestamp", "").replace("T", " ").replace("Z", "")
+        level = parsed_line.get("log", {}).get("level", "")
+        exception_message = parsed_line.get("exception", {}).get("message", "")
+        exception_trace = parsed_line.get("exception", {}).get("trace", "")
 
-        formatted_log_line = f'{timestamp} [{level}] {message}\n'
+        formatted_log_line = f"{timestamp} [{level}] {message}\n"
         if exception_message:
-            formatted_log_line += f'{timestamp} [EXCEPTION] {exception_message}\n'
+            formatted_log_line += f"{timestamp} [EXCEPTION] {exception_message}\n"
         if exception_trace:
-            formatted_log_line += f'{timestamp} [TRACE] {exception_trace}\n'
+            formatted_log_line += f"{timestamp} [TRACE] {exception_trace}\n"
 
-        return formatted_log_line
-
+    return formatted_log_line
 
 
 @click.command()
-@click.argument('service')
-def main(service="ce"):
-    output = []
+@click.argument("service")
+def main(service: str = "ce") -> None:
+    output: list = []
     log_file = ""
 
     if log_dir_exists(service):
@@ -61,5 +65,6 @@ def main(service="ce"):
     else:
         logger.critical("no raw logs found.")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

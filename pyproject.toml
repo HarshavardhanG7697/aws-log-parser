@@ -7,12 +7,64 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
 click = "^8.1.4"
 structlog = "^23.1.0"
 
 [tool.poetry.scripts]
 aws-log-parser = 'aws_log_parser.aws_log_parser:main'
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+bandit = "^1.7.5"
+tox = "^4.6.4"
+coverage = "^7.2.7"
+pytest-cov = "^4.1.0"
+ruff = "^0.0.278"
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.mccabe]
+max-complexity = 10
+
+[tool.mypy]
+ignore_missing_imports = "True"
+ignore_errors = "True"
+
+[tool.coverage.report]
+skip_empty = true
+
+[tool.tox]
+legacy_tox_ini = """
+    [tox]
+    min_version = 4.0
+    isolated_build = true
+    env_list =
+        py{39,310,311}
+        lint
+        type
+        tests
+
+    [testenv]
+    deps =
+        poetry
+
+    commands_pre = 
+        poetry install
+
+    [testenv:lint]
+    commands =
+        poetry run ruff check src/ tests/
+
+    [testenv:type]
+    commands =
+        poetry run mypy src/
+
+    [testenv:tests]
+    commands =
+        poetry run pytest -ra -v --cov=src/ --cov-report xml .
+"""
 
 [build-system]
 requires = ["poetry-core"]
